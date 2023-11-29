@@ -251,10 +251,10 @@ public class ChessBoard {
 
     void markPossibleMoves(int x, int y) {
         Piece piece = getIcon(x, y);
-        for(int i = 0; i < 8; i++) {
-            for(int j = 0; j < 8; j++) {
-                if(isValidMove(piece, x, y, i, j) && (piece.type == PieceType.knight || isPathClear(x, y, i, j))) {
-                    markPosition(i, j);
+        for(int j = 0; j < 8; j++) {
+            for(int i = 0; i < 8; i++) {
+                if(isValidMove(piece, x, y, j, i)) {
+                    markPosition(j, i);
                 }
             }
         }
@@ -262,10 +262,10 @@ public class ChessBoard {
 
     void unmarkPossibleMoves(int x, int y) {
         Piece piece = getIcon(x, y);
-        for(int i = 0; i < 8; i++) {
-            for(int j = 0; j < 8; j++) {
-                if(isValidMove(piece, x, y, i, j)) {
-                    unmarkPosition(i, j);
+        for(int j = 0; j < 8; j++) {
+            for(int i = 0; i < 8; i++) {
+                if(isValidMove(piece, x, y, j, i)) {
+                    unmarkPosition(j, i);
                 }
             }
         }
@@ -276,67 +276,6 @@ public class ChessBoard {
         setIcon(endX, endY, pieceToMove);
         setIcon(startX, startY, new Piece());
     }
-
-    class Rook extends Piece {
-        Rook(PlayerColor color) {
-            this.color = color;
-            this.type = PieceType.rook;
-        }
-        boolean isValidMove(int startX, int startY, int endX, int endY) {
-            return (startX == endX || startY == endY);
-        }
-    }
-
-    class Bishop extends Piece {
-        Bishop(PlayerColor color) {
-            this.color = color;
-            this.type = PieceType.bishop;
-        }
-        boolean isValidMove(int startX, int startY, int endX, int endY) {
-            return Math.abs(startX - endX) == Math.abs(startY - endY);
-        }
-    }
-
-    class Queen extends Piece {
-        Queen(PlayerColor color) {
-            this.color = color;
-            this.type = PieceType.queen;
-        }
-        boolean isValidMove(int startX, int startY, int endX, int endY) {
-            return (startX == endX || startY == endY) || Math.abs(startX - endX) == Math.abs(startY - endY);
-        }
-    }
-
-    class King extends Piece {
-        King(PlayerColor color) {
-            this.color = color;
-            this.type = PieceType.king;
-        }
-        boolean isValidMove(int startX, int startY, int endX, int endY) {
-            return Math.abs(startX - endX) <= 1 && Math.abs(startY - endY) <= 1;
-        }
-    }
-
-    class Knight extends Piece {
-        Knight(PlayerColor color) {
-            this.color = color;
-            this.type = PieceType.knight;
-        }
-        boolean isValidMove(int startX, int startY, int endX, int endY) {
-            return (Math.abs(startX - endX) == 2 && Math.abs(startY - endY) == 1) || (Math.abs(startX - endX) == 1 && Math.abs(startY - endY) == 2);
-        }
-    }
-
-    class Pawn extends Piece {
-        Pawn(PlayerColor color) {
-            this.color = color;
-            this.type = PieceType.pawn;
-        }
-        boolean isValidMove(int startX, int startY, int endX, int endY) {
-            return (color == PlayerColor.white && endY - startY == 1 && startX == endX) || (color == PlayerColor.black && startY - endY == 1 && startX == endX);
-        }
-    }
-
 
     void onInitiateBoard(){
         selX = -1;
@@ -349,31 +288,19 @@ public class ChessBoard {
     }
 
     boolean isPathClear(int startX, int startY, int endX, int endY) {
-        int stepX = (startX < endX) ? 1 : -1;
-        int stepY = (startY < endY) ? 1 : -1;
+        int xDirection = (endX - startX) != 0 ? (endX - startX) / Math.abs(endX - startX) : 0;
+        int yDirection = (endY - startY) != 0 ? (endY - startY) / Math.abs(endY - startY) : 0;
 
-        if(startX == endX) {
-            for(int y = startY + stepY; y != endY; y += stepY) {
-                if(getIcon(startX, y) != null) {
-                    return false;
-                }
+        int currentX = startX + xDirection;
+        int currentY = startY + yDirection;
+
+        while(currentX != endX || currentY != endY) {
+            if(getIcon(currentX, currentY) != null) {
+                return false; // Path is blocked
             }
-        } else if(startY == endY) {
-            for(int x = startX + stepX; x != endX; x += stepX) {
-                if(getIcon(x, startY) != null) {
-                    return false;
-                }
-            }
-        } else {
-            int x = startX + stepX;
-            int y = startY + stepY;
-            while(x != endX && y != endY) {
-                if(getIcon(x, y) != null) {
-                    return false;
-                }
-                x += stepX;
-                y += stepY;
-            }
+
+            currentX += xDirection;
+            currentY += yDirection;
         }
 
         return true;
@@ -382,10 +309,9 @@ public class ChessBoard {
 
     boolean isValidMove(Piece piece, int startX, int startY, int endX, int endY) {
         Piece destinationPiece = getIcon(endX, endY);
-        if(destinationPiece != null && destinationPiece.color == piece.color) {
+        if(destinationPiece.type == PieceType.none && destinationPiece.color == piece.color) {
             return false;
         }
-
         switch(piece.type) {
             case rook:
                 return (startX == endX || startY == endY) && isPathClear(startX, startY, endX, endY);
@@ -398,7 +324,33 @@ public class ChessBoard {
             case knight:
                 return (Math.abs(startX - endX) == 2 && Math.abs(startY - endY) == 1) || (Math.abs(startX - endX) == 1 && Math.abs(startY - endY) == 2);
             case pawn:
-                return (piece.color == PlayerColor.white && startY - endY == 1 && startX == endX && getIcon(endX, endY) == null) || (piece.color == PlayerColor.black && endY - startY == 1 && startX == endX && getIcon(endX, endY) == null);
+                if (piece.color == PlayerColor.white) {
+                    if ((startX - endX == 1) && (startY == endY)) {
+                        // One Forward
+                        return true;
+                    } else if ((destinationPiece.type != PieceType.none) && (startX - endX == 1) && (Math.abs(startY - endY) == 1)) {
+                        // Diagonal capture
+                        return true;
+                    } else if ((startX == 6) && (startY - endY == 0) && ((startX - endX) == 2)) {
+                        // Two-square forward move from starting position
+                        return true;
+                    } else {
+                        return false;
+                    }
+                } else if (piece.color == PlayerColor.black) {
+                    if ((endX - startX == 1) && (startY == endY)) {
+                        // One Forward
+                        return true;
+                    } else if ((destinationPiece.type != PieceType.none) && (endX - startX == 1) && (Math.abs(startY - endY) == 1)) {
+                        // Diagonal capture
+                        return true;
+                    } else if ((startX == 1) && (startY - endY == 0) && ((endX - startX) == 2)) {
+                        // Two-square forward move from starting position
+                        return true;
+                    } else {
+                        return false;
+                    }
+                }
             default:
                 return false;
         }
