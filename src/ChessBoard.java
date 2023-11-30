@@ -232,8 +232,8 @@ public class ChessBoard {
                     selY = y;
                 } else if(selX != -1 && selY != -1) {
                     Piece pieceToMove = getIcon(selX, selY);
-                    if(isValidMove(pieceToMove, selX, selY, x, y)) {
-                        // Unmark the moved piece's possible moves
+                    if(isInBounds(x, y) && isValidNoCheck(pieceToMove, selX, selY, x, y)) {
+                        // Unmark the moved piece's possible moves (before the move because of logic)
                         unmarkPossibleMoves(selX, selY);
                         movePiece(selX, selY, x, y);
                         selX = -1;
@@ -280,7 +280,7 @@ public class ChessBoard {
         Piece piece = getIcon(x, y);
         for(int j = 0; j < 8; j++) {
             for(int i = 0; i < 8; i++) {
-                if(isValidNoCheck(piece, x, y, j, i)) {
+                if(isInBounds(j, i) && isValidNoCheck(piece, x, y, j, i)) {
                     markPosition(j, i);
                 }
             }
@@ -291,7 +291,7 @@ public class ChessBoard {
         Piece piece = getIcon(x, y);
         for(int j = 0; j < 8; j++) {
             for(int i = 0; i < 8; i++) {
-                if(isValidNoCheck(piece, x, y, j, i)) {
+                if(isInBounds(j, i) && isValidNoCheck(piece, x, y, j, i)) {
                     unmarkPosition(j, i);
                 }
             }
@@ -310,7 +310,7 @@ public class ChessBoard {
         check = false;
         checkmate = false;
         end = false;
-        turn = PlayerColor.black;
+        turn = PlayerColor.white;
         updateStatus();
     }
 
@@ -461,7 +461,7 @@ public class ChessBoard {
             for (int dy = -1; dy <= 1; dy++) {
                 int newX = kingPos[0] + dx;
                 int newY = kingPos[1] + dy;
-                if (isValidNoCheck(king, kingPos[0], kingPos[1], newX, newY)) {
+                if (isInBounds(newX, newY) && isValidNoCheck(king, kingPos[0], kingPos[1], newX, newY)) {
                     return false; // The king can move to a safe square
                 }
             }
@@ -470,9 +470,13 @@ public class ChessBoard {
         return true; // The king is in checkmate
     }
 
+    boolean isInBounds(int x, int y) {
+        return x >= 0 && x < 8 && y >= 0 && y < 8;
+    }
+
     void updateStatus() {
         if(checkmate) {
-            setStatus(turn + " is in checkmate");
+            setStatus(turn + " is in checkmate" + " / " + winner + " is the winner");
         } else if(check) {
             setStatus(turn + "'s turn / Check");
         } else if(end) {
