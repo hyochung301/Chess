@@ -232,7 +232,7 @@ public class ChessBoard {
                     selY = y;
                 } else if(selX != -1 && selY != -1) {
                     Piece pieceToMove = getIcon(selX, selY);
-                    if(isInBounds(x, y) && isValidNoCheck(pieceToMove, selX, selY, x, y)) {
+                    if(isInBounds(x, y) && isValidMove(pieceToMove, selX, selY, x, y)) {
                         // Unmark the moved piece's possible moves (before the move because of logic)
                         unmarkPossibleMoves(selX, selY);
                         movePiece(selX, selY, x, y);
@@ -280,7 +280,7 @@ public class ChessBoard {
         Piece piece = getIcon(x, y);
         for(int j = 0; j < 8; j++) {
             for(int i = 0; i < 8; i++) {
-                if(isInBounds(j, i) && isValidNoCheck(piece, x, y, j, i)) {
+                if(isInBounds(j, i) && isValidMove(piece, x, y, j, i)) {
                     markPosition(j, i);
                 }
             }
@@ -291,7 +291,7 @@ public class ChessBoard {
         Piece piece = getIcon(x, y);
         for(int j = 0; j < 8; j++) {
             for(int i = 0; i < 8; i++) {
-                if(isInBounds(j, i) && isValidNoCheck(piece, x, y, j, i)) {
+                if(isInBounds(j, i) && isValidMove(piece, x, y, j, i)) {
                     unmarkPosition(j, i);
                 }
             }
@@ -310,7 +310,7 @@ public class ChessBoard {
         check = false;
         checkmate = false;
         end = false;
-        turn = PlayerColor.white;
+        turn = PlayerColor.black;
         updateStatus();
     }
 
@@ -351,31 +351,39 @@ public class ChessBoard {
             case queen:
                 return (startX == endX || startY == endY || Math.abs(startX - endX) == Math.abs(startY - endY)) && isPathClear(startX, startY, endX, endY);
             case king:
-                return Math.abs(startX - endX) <= 1 && Math.abs(startY - endY) <= 1 && !isCheck(piece, endX, endY);
+                return Math.abs(startX - endX) <= 1 && Math.abs(startY - endY) <= 1;
             case knight:
                 return (Math.abs(startX - endX) == 2 && Math.abs(startY - endY) == 1) || (Math.abs(startX - endX) == 1 && Math.abs(startY - endY) == 2);
             case pawn:
+                Piece frontPiece = null;
+                if (isInBounds(startX + ((piece.color == PlayerColor.white) ? -1 : 1), startY)) {
+                    frontPiece = getIcon(startX + ((piece.color == PlayerColor.white) ? -1 : 1), startY);
+                }                
+                Piece frontFrontPiece = null;
+                if (isInBounds(startX + ((piece.color == PlayerColor.white) ? -2 : 2), startY)) {
+                    frontFrontPiece = getIcon(startX + ((piece.color == PlayerColor.white) ? -2 : 2), startY);
+                }                
                 if (piece.color == PlayerColor.white) {
-                    if ((startX - endX == 1) && (startY == endY)) {
+                    if ((startX - endX == 1) && (startY == endY) && frontPiece.type == PieceType.none) {
                         // One Forward
                         return true;
                     } else if ((destinationPiece.type != PieceType.none) && (startX - endX == 1) && (Math.abs(startY - endY) == 1)) {
                         // Diagonal capture
                         return true;
-                    } else if ((startX == 6) && (startY - endY == 0) && ((startX - endX) == 2) && (isPathClear(startX, startY, endX, endY))) {
+                    } else if ((startX == 6) && (startY - endY == 0) && ((startX - endX) == 2) && (frontFrontPiece.type == PieceType.none) && (frontPiece.type == PieceType.none)) {
                         // Two-square forward move from starting position
                         return true;
                     } else {
                         return false;
                     }
                 } else if (piece.color == PlayerColor.black) {
-                    if ((endX - startX == 1) && (startY == endY)) {
+                    if ((endX - startX == 1) && (startY == endY) && frontPiece.type == PieceType.none) {
                         // One Forward
                         return true;
                     } else if ((destinationPiece.type != PieceType.none) && (endX - startX == 1) && (Math.abs(startY - endY) == 1)) {
                         // Diagonal capture
                         return true;
-                    } else if ((startX == 1) && (startY - endY == 0) && ((endX - startX) == 2) && (isPathClear(startX, startY, endX, endY))) {
+                    } else if ((startX == 1) && (startY - endY == 0) && ((endX - startX) == 2) && (frontFrontPiece.type == PieceType.none) && (frontPiece.type == PieceType.none)) {
                         // Two-square forward move from starting position
                         return true;
                     } else {
@@ -385,36 +393,6 @@ public class ChessBoard {
             default:
                 return false;
         }
-    }
-
-    boolean isValidNoCheck(Piece piece, int startX, int startY, int endX, int endY) {
-        // First, check if the move is valid for the piece type
-        if (!isValidMove(piece, startX, startY, endX, endY)) {
-            return false;
-        }
-
-        // Save the state before the move
-        Piece savedPiece = getIcon(endX, endY);
-
-        // Temporarily make the move
-        movePiece(startX, startY, endX, endY);
-
-        // Check if your own king would be in check after the move
-        int[] kingPos = findKing(piece.color);
-        Piece king = getIcon(kingPos[0], kingPos[1]);
-        boolean kingInCheck = isCheck(king, kingPos[0], kingPos[1]);
-
-        // Undo the move
-        movePiece(endX, endY, startX, startY);
-        setIcon(endX, endY, savedPiece);
-
-        // If the king would be in check, the move is not valid
-        if (kingInCheck) {
-            return false;
-        }
-
-        // Otherwise, the move is valid
-        return true;
     }
 
     int[] findKing(PlayerColor color) {
@@ -461,7 +439,7 @@ public class ChessBoard {
             for (int dy = -1; dy <= 1; dy++) {
                 int newX = kingPos[0] + dx;
                 int newY = kingPos[1] + dy;
-                if (isInBounds(newX, newY) && isValidNoCheck(king, kingPos[0], kingPos[1], newX, newY)) {
+                if (isInBounds(newX, newY) && isValidMove(king, kingPos[0], kingPos[1], newX, newY)) {
                     return false; // The king can move to a safe square
                 }
             }
