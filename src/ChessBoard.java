@@ -208,6 +208,8 @@ public class ChessBoard {
     private int selX, selY;
     private boolean check, checkmate, end;
     private PlayerColor turn = PlayerColor.black;
+    private PlayerColor winner = PlayerColor.none;
+    boolean blackIsCheck = false, whiteIsCheck = false;
 
     class ButtonListener implements ActionListener{
         int x;
@@ -217,38 +219,59 @@ public class ChessBoard {
             this.y = y;
         }
         public void actionPerformed(ActionEvent e) {
-            Piece selectedPiece = getIcon(x, y);
-            if(selectedPiece.color == turn) {
-                // Unmark the old selected piece's possible moves
-                if(selX != -1 && selY != -1) {
-                    unmarkPossibleMoves(selX, selY);
-                }
-                // Mark the new selected piece's possible moves
-                markPossibleMoves(x, y);
-                selX = x;
-                selY = y;
-            } else if(selX != -1 && selY != -1) {
-                Piece pieceToMove = getIcon(selX, selY);
-                if(isValidMove(pieceToMove, selX, selY, x, y)) {
-                    // Unmark the moved piece's possible moves
-                    unmarkPossibleMoves(selX, selY);
-                    movePiece(selX, selY, x, y);
-                    selX = -1;
-                    selY = -1;
-                    turn = (turn == PlayerColor.black) ? PlayerColor.white : PlayerColor.black;
-                    int[] kingPos = findKing(pieceToMove.color);
-                    int kingX = kingPos[0], kingY = kingPos[1];
-                    check = isCheck(turn, kingX, kingY);
-                    checkmate = isCheckmate(turn, kingX, kingY);
-                    updateStatus();
-                } else {
-                    // Unmark the selected piece's possible moves if an invalid move was attempted
-                    unmarkPossibleMoves(selX, selY);
-                    selX = -1;
-                    selY = -1;
+            if (!end) {
+                Piece selectedPiece = getIcon(x, y);
+                if(selectedPiece.color == turn) {
+                    // Unmark the old selected piece's possible moves
+                    if(selX != -1 && selY != -1) {
+                        unmarkPossibleMoves(selX, selY);
+                    }
+                    // Mark the new selected piece's possible moves
+                    markPossibleMoves(x, y);
+                    selX = x;
+                    selY = y;
+                } else if(selX != -1 && selY != -1) {
+                    Piece pieceToMove = getIcon(selX, selY);
+                    if(isValidMove(pieceToMove, selX, selY, x, y)) {
+                        // Unmark the moved piece's possible moves
+                        unmarkPossibleMoves(selX, selY);
+                        movePiece(selX, selY, x, y);
+                        selX = -1;
+                        selY = -1;
+                        checkBothColors();
+                        if (check){
+                            checkmate = isCheckmate(turn);
+                        }
+                        if (checkmate) {
+                            check = false;
+                            end = true;
+                            winner = turn;
+                        }
+
+                        turn = (turn == PlayerColor.black) ? PlayerColor.white : PlayerColor.black;
+                        updateStatus();
+                    } else {
+                        // Unmark the selected piece's possible moves if an invalid move was attempted
+                        unmarkPossibleMoves(selX, selY);
+                        selX = -1;
+                        selY = -1;
+                    }
                 }
             }
         }
+    }
+
+
+    void checkBothColors() {
+        int[] blackKingPos = findKing(PlayerColor.black);
+        Piece blackKing = getIcon(blackKingPos[0], blackKingPos[1]);
+        blackIsCheck = isCheck(blackKing, blackKingPos[0], blackKingPos[1]);
+    
+        int[] whiteKingPos = findKing(PlayerColor.white);
+        Piece whiteKing = getIcon(whiteKingPos[0], whiteKingPos[1]);
+        whiteIsCheck = isCheck(whiteKing, whiteKingPos[0], whiteKingPos[1]);
+
+        check = blackIsCheck || whiteIsCheck;
     }
 
     void markPossibleMoves(int x, int y) {
@@ -302,6 +325,7 @@ public class ChessBoard {
         while (currentX != endX || currentY != endY) {
             Piece piece = getIcon(currentX, currentY);
             if (piece != null && piece.type != PieceType.none) {
+
                 return false; // There is a piece in the way
             }
             currentX += stepX;
@@ -325,7 +349,7 @@ public class ChessBoard {
             case queen:
                 return (startX == endX || startY == endY || Math.abs(startX - endX) == Math.abs(startY - endY)) && isPathClear(startX, startY, endX, endY);
             case king:
-                return Math.abs(startX - endX) <= 1 && Math.abs(startY - endY) <= 1;
+                return Math.abs(startX - endX) <= 1 && Math.abs(startY - endY) <= 1 && !isCheck(piece, endX, endY);
             case knight:
                 return (Math.abs(startX - endX) == 2 && Math.abs(startY - endY) == 1) || (Math.abs(startX - endX) == 1 && Math.abs(startY - endY) == 2);
             case pawn:
@@ -336,7 +360,7 @@ public class ChessBoard {
                     } else if ((destinationPiece.type != PieceType.none) && (startX - endX == 1) && (Math.abs(startY - endY) == 1)) {
                         // Diagonal capture
                         return true;
-                    } else if ((startX == 6) && (startY - endY == 0) && ((startX - endX) == 2)) {
+                    } else if ((startX == 6) && (startY - endY == 0) && ((startX - endX) == 2) && (isPathClear(startX, startY, endX, endY))) {
                         // Two-square forward move from starting position
                         return true;
                     } else {
@@ -349,7 +373,7 @@ public class ChessBoard {
                     } else if ((destinationPiece.type != PieceType.none) && (endX - startX == 1) && (Math.abs(startY - endY) == 1)) {
                         // Diagonal capture
                         return true;
-                    } else if ((startX == 1) && (startY - endY == 0) && ((endX - startX) == 2)) {
+                    } else if ((startX == 1) && (startY - endY == 0) && ((endX - startX) == 2) && (isPathClear(startX, startY, endX, endY))) {
                         // Two-square forward move from starting position
                         return true;
                     } else {
@@ -362,10 +386,12 @@ public class ChessBoard {
     }
 
     int[] findKing(PlayerColor color) {
+        PlayerColor oppositeColor = (color == PlayerColor.black) ? PlayerColor.white : PlayerColor.black;
+        // Find the king of the opposite color
         for (int i = 0; i < 8; i++) {
             for (int j = 0; j < 8; j++) {
                 Piece piece = getIcon(i, j);
-                if (piece != null && piece.type == PieceType.king && piece.color == color) {
+                if (piece != null && piece.type == PieceType.king && piece.color == oppositeColor) {
                     return new int[]{i, j};
                 }
             }
@@ -373,13 +399,13 @@ public class ChessBoard {
         return new int[]{-1, -1}; // Return an invalid position if the king is not found
     }
 
-    boolean isCheck(PlayerColor color, int kingX, int kingY) {
+    boolean isCheck(Piece king, int kingX, int kingY) {
 
         // Check if any opponent's piece can move to the king's position
         for (int j = 0; j < 8; j++) {
             for (int i = 0; i < 8; i++) {
-                Piece piece = getIcon(i, j);
-                if (piece.type != PieceType.none && piece.color != color && isValidMove(piece, i, j, kingX, kingY)) {
+                Piece enemy = getIcon(i, j);
+                if (enemy.type != PieceType.none && enemy.color != king.color && isValidMove(enemy, i, j, kingX, kingY)) {
                     return true; // The king is in check
                 }
             }
@@ -388,17 +414,20 @@ public class ChessBoard {
         return false; // The king is not in check
     }
 
-    boolean isCheckmate(PlayerColor color, int kingX, int kingY) {
-        if (!(isCheck(color, kingX, kingY))) {
+    boolean isCheckmate(PlayerColor color) {
+        int[] kingPos = findKing(color);
+        Piece king = getIcon(kingPos[0], kingPos[1]);
+
+        if (!(isCheck(king, kingPos[0], kingPos[1]))) {
             return false; // The king is not in check
         }
 
         // Check if the king can move to a safe square
         for (int dx = -1; dx <= 1; dx++) {
             for (int dy = -1; dy <= 1; dy++) {
-                int newX = kingX + dx;
-                int newY = kingY + dy;
-                if (isValidMove(getIcon(kingX, kingY), kingX, kingY, newX, newY) && !isCheck(color, newX, newY)) {
+                int newX = kingPos[0] + dx;
+                int newY = kingPos[1] + dy;
+                if (isValidMove(king, kingPos[0], kingPos[1], newX, newY)) {
                     return false; // The king can move to a safe square
                 }
             }
@@ -410,9 +439,10 @@ public class ChessBoard {
     void updateStatus() {
         if(checkmate) {
             setStatus(turn + " is in checkmate");
-            end = true;
         } else if(check) {
-            setStatus(turn + " is in check");
+            setStatus(turn + "'s turn / Check");
+        } else if(end) {
+            setStatus(winner + " is the winner");
         } else {
             setStatus(turn + "'s turn");
         }
