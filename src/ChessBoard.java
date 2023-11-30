@@ -246,6 +246,8 @@ public class ChessBoard {
                             check = false;
                             end = true;
                             winner = turn;
+                            updateStatus();
+
                         }
 
                         turn = (turn == PlayerColor.black) ? PlayerColor.white : PlayerColor.black;
@@ -278,7 +280,7 @@ public class ChessBoard {
         Piece piece = getIcon(x, y);
         for(int j = 0; j < 8; j++) {
             for(int i = 0; i < 8; i++) {
-                if(isValidMove(piece, x, y, j, i)) {
+                if(isValidNoCheck(piece, x, y, j, i)) {
                     markPosition(j, i);
                 }
             }
@@ -289,7 +291,7 @@ public class ChessBoard {
         Piece piece = getIcon(x, y);
         for(int j = 0; j < 8; j++) {
             for(int i = 0; i < 8; i++) {
-                if(isValidMove(piece, x, y, j, i)) {
+                if(isValidNoCheck(piece, x, y, j, i)) {
                     unmarkPosition(j, i);
                 }
             }
@@ -385,13 +387,43 @@ public class ChessBoard {
         }
     }
 
+    boolean isValidNoCheck(Piece piece, int startX, int startY, int endX, int endY) {
+        // First, check if the move is valid for the piece type
+        if (!isValidMove(piece, startX, startY, endX, endY)) {
+            return false;
+        }
+
+        // Save the state before the move
+        Piece savedPiece = getIcon(endX, endY);
+
+        // Temporarily make the move
+        movePiece(startX, startY, endX, endY);
+
+        // Check if your own king would be in check after the move
+        int[] kingPos = findKing(piece.color);
+        Piece king = getIcon(kingPos[0], kingPos[1]);
+        boolean kingInCheck = isCheck(king, kingPos[0], kingPos[1]);
+
+        // Undo the move
+        movePiece(endX, endY, startX, startY);
+        setIcon(endX, endY, savedPiece);
+
+        // If the king would be in check, the move is not valid
+        if (kingInCheck) {
+            return false;
+        }
+
+        // Otherwise, the move is valid
+        return true;
+    }
+
     int[] findKing(PlayerColor color) {
-        PlayerColor oppositeColor = (color == PlayerColor.black) ? PlayerColor.white : PlayerColor.black;
-        // Find the king of the opposite color
+        // PlayerColor oppositeColor = (color == PlayerColor.black) ? PlayerColor.white : PlayerColor.black;
+        // Find the king of the given color
         for (int i = 0; i < 8; i++) {
             for (int j = 0; j < 8; j++) {
                 Piece piece = getIcon(i, j);
-                if (piece != null && piece.type == PieceType.king && piece.color == oppositeColor) {
+                if (piece != null && piece.type == PieceType.king && piece.color == color) {
                     return new int[]{i, j};
                 }
             }
@@ -401,7 +433,7 @@ public class ChessBoard {
 
     boolean isCheck(Piece king, int kingX, int kingY) {
 
-        // Check if any opponent's piece can move to the king's position
+        // Check if any opponent's piece can move to the given king's position
         for (int j = 0; j < 8; j++) {
             for (int i = 0; i < 8; i++) {
                 Piece enemy = getIcon(i, j);
@@ -415,8 +447,10 @@ public class ChessBoard {
     }
 
     boolean isCheckmate(PlayerColor color) {
-        int[] kingPos = findKing(color);
+        PlayerColor oppositeColor = (color == PlayerColor.black) ? PlayerColor.white : PlayerColor.black;
+        int[] kingPos = findKing(oppositeColor);
         Piece king = getIcon(kingPos[0], kingPos[1]);
+        
 
         if (!(isCheck(king, kingPos[0], kingPos[1]))) {
             return false; // The king is not in check
@@ -427,7 +461,7 @@ public class ChessBoard {
             for (int dy = -1; dy <= 1; dy++) {
                 int newX = kingPos[0] + dx;
                 int newY = kingPos[1] + dy;
-                if (isValidMove(king, kingPos[0], kingPos[1], newX, newY)) {
+                if (isValidNoCheck(king, kingPos[0], kingPos[1], newX, newY)) {
                     return false; // The king can move to a safe square
                 }
             }
