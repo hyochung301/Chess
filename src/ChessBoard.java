@@ -247,7 +247,6 @@ public class ChessBoard {
                             end = true;
                             winner = turn;
                             updateStatus();
-
                         }
 
                         turn = (turn == PlayerColor.black) ? PlayerColor.white : PlayerColor.black;
@@ -351,7 +350,7 @@ public class ChessBoard {
             case queen:
                 return (startX == endX || startY == endY || Math.abs(startX - endX) == Math.abs(startY - endY)) && isPathClear(startX, startY, endX, endY);
             case king:
-                return Math.abs(startX - endX) <= 1 && Math.abs(startY - endY) <= 1;
+                return Math.abs(startX - endX) <= 1 && Math.abs(startY - endY) <= 1 && !isCheck(piece, endX, endY);
             case knight:
                 return (Math.abs(startX - endX) == 2 && Math.abs(startY - endY) == 1) || (Math.abs(startX - endX) == 1 && Math.abs(startY - endY) == 2);
             case pawn:
